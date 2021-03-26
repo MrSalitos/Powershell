@@ -191,9 +191,7 @@ foreach($share in $abteilungen){
         $acl = Get-Acl $shareName
 		
         ## Vererbung deaktivieren ##
-        #$acl = Get-Acl $shareName
         $acl.SetAccessRuleProtection($true,$true)
-        Set-Acl $shareName $acl
 		
 		## Alle Berechtigungen löschen ##
 		foreach($access in $acl.access) 
