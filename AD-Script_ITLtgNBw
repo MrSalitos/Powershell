@@ -1,3 +1,7 @@
+<# Powershell-Script zum Erstellen einer OU-Struktur, Benutzern und Gruppen. Erstellt Gruppen gem. AGDLP und 
+setzt direkt die Mitgliedschaften. Weiterhin werden auf einer Netzwerkfreigabe Ordner für jede Abteilung erstellt 
+und die NTFS-Berechtigungen angepasst. #>
+
 $kdrGrp = "Kdr"
 $abteilungen = @("S1","S2","S3","S4","S6")
 $kdrPos = @("Kdr","stvKdr","VorZi")
