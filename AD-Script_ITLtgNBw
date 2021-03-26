@@ -1,13 +1,9 @@
-<# Powershell-Script zum Erstellen einer OU-Struktur, Benutzern und Gruppen. Erstellt Gruppen gem. AGDLP und 
-setzt direkt die Mitgliedschaften. Weiterhin werden auf einer Netzwerkfreigabe Ordner für jede Abteilung erstellt 
-und die NTFS-Berechtigungen angepasst. #>
-
 $kdrGrp = "Kdr"
 $abteilungen = @("S1","S2","S3","S4","S6")
 $kdrPos = @("Kdr","stvKdr","VorZi")
 $abtPos = @("AbtLtr","AbtFw","GeZi")
-$ntfsRechte = @("AE","S","L")
-$sharePath = '\\DC-01\share\'
+$ntfsRechte = @("VZ","AE","L")
+$sharePath = '\\DC-01\share'
 $DC = "DC=BUNDESWEHR,DC=INTERN"
 $verband = "VersBtl131"
 $einheit = "Stab"
@@ -47,8 +43,8 @@ foreach($abt IN $abteilungen){
         $g_groupFqdn = "CN=" + $g_groupName + "," + $g_groupPath
         
         $identity = switch ($pos){
-            "AbtLtr" {"DL_" + $abt + "_AE"}
-            "AbtFw" {"DL_" + $abt + "_S"}
+            "AbtLtr" {"DL_" + $abt + "_VZ"}
+            "AbtFw" {"DL_" + $abt + "_AE"}
             "GeZi" {"DL_" + $abt + "_L"}
         }
         echo "$g_groupFqdn wird Mitglied von $identity"
@@ -65,7 +61,12 @@ foreach($abt IN $abteilungen){
         $userName = $abt + "_" + $pos
         $userGlobalGroup = "G_" + $abt + "_" + $pos
         $userFqdn = "CN=" + $userName + "," + $userPath
-        New-ADUser -SamAccountName $userName -Name $userName -UserPrincipalName $userName -Enabled $true -AccountPassword (ConvertTo-SecureString -AsPlainText $userPassword -Force) -PasswordNeverExpires $true -Path $userPath
+        $userProfilePath = "$sharePath\profile\$abt\$userName"
+        echo $userProfilePath
+        $userHomePath = "$sharePath\home\$abt\{0}" -f $userName
+        echo $userHomePath
+        $userHomeDrive = "H:"
+        New-ADUser -SamAccountName $userName -Name $userName -UserPrincipalName $userName -HomeDrive $userHomeDrive -HomeDirectory $userHomePath -Enabled $true -AccountPassword (ConvertTo-SecureString -AsPlainText $userPassword -Force) -PasswordNeverExpires $true -Path $userPath
         Add-ADGroupMember -Identity $userGlobalGroup -Members $userFqdn
         echo "$userFqdn wird Mitglied der Gruppe $userGlobalGroup "
     }
@@ -76,9 +77,9 @@ foreach($abt IN $abteilungen){
         if($testPath -eq $false){
             New-Item -Path $shareName -ItemType directory
 
-            $dlAE = "DL_" + $share + "_AE"
+            $dlVZ = "DL_" + $share + "_VZ"
             echo $dlAE
-            $dlS = "DL_" + $share + "_S"
+            $dlAE = "DL_" + $share + "_AE"
             echo $dlS
             $dlL = "DL_" + $share + "_L"
             echo $dlL
@@ -95,9 +96,9 @@ foreach($abt IN $abteilungen){
             }
             
         ## Berechtigungen setzen ##
-        New-Object System.Security.AccessControl.FileSystemAccessRule("$dlL","ReadandExecute","ContainerInherit","InheritOnly","Allow") | %{$acl.SetAccessRule($_)}
-        New-Object System.Security.AccessControl.FileSystemAccessRule("$dlS","Write","ContainerInherit","InheritOnly","Allow") | %{$acl.SetAccessRule($_)}
-        New-Object System.Security.AccessControl.FileSystemAccessRule("$dlAE","Modify","ContainerInherit","InheritOnly","Allow") | %{$acl.SetAccessRule($_)}
+        New-Object System.Security.AccessControl.FileSystemAccessRule("$dlL","Read,ExecuteFile","ContainerInherit,ObjectInherit","none","Allow") | %{$acl.SetAccessRule($_)}
+        New-Object System.Security.AccessControl.FileSystemAccessRule("$dlAE","Modify","ContainerInherit,ObjectInherit","none","Allow") | %{$acl.SetAccessRule($_)}
+        New-Object System.Security.AccessControl.FileSystemAccessRule("$dlVZ","FullControl","ContainerInherit,ObjectInherit","none","Allow") | %{$acl.SetAccessRule($_)}
         
          # ACL setzen
         Set-Acl $shareName $acl
