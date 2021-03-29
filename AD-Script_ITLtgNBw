@@ -62,12 +62,34 @@ foreach($abt IN $abteilungen){
         $userName = $abt + "_" + $pos
         $userGlobalGroup = "G_" + $abt + "_" + $pos
         $userFqdn = "CN=" + $userName + "," + $userADPath
-        $userProfilePath = $userPath + '\userProfile\%USERNAME%'
-        echo $userProfilePath
-        $userHomePath = $userPath + '\userHome\%USERNAME%'
-        echo $userHomePath
+        $userProfilePath = "$userPath\userProfile\{0}" -f $userName
+        $userHomePath = "$userPath\userHome\{0}" -f $userName
         $userHomeDrive = "H:"
+
         New-ADUser -SamAccountName $userName -Name $userName -UserPrincipalName $userName -ProfilePath $userProfilePath -HomeDrive $userHomeDrive -HomeDirectory $userHomePath -Enabled $true -AccountPassword (ConvertTo-SecureString -AsPlainText $userPassword -Force) -PasswordNeverExpires $true -Path $userADPath
+        
+        $homeSharePath = "$userPath\userHome"
+        $homeShare = New-Item -ItemType directory -Name $userName -Path $homeSharePath
+        $acl = Get-Acl $homeShare
+
+        # Vererbung deaktivieren
+            $acl.SetAccessRuleProtection($true,$false)
+
+        # Alle Berechtigungen entfernen
+            foreach($access IN $acl.Access){
+                $acl.RemoveAccessRule($access)
+            }
+
+        $fileSystemRights = [System.Security.AccessControl.FileSystemRights]"Modify"
+        $accessControlType = [System.Security.AccessControl.AccessControlType]"Allow"
+        $inheritanceFlags = [System.Security.AccessControl.InheritanceFlags]"ContainerInherit,ObjectInherit"
+        $propagationFlags = [System.Security.AccessControl.PropagationFlags]"none"
+
+        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule ($userName, $fileSystemRights, $inheritanceFlags, $propagationFlags, $accessControlType)
+        $acl.AddAccessRule($accessRule)
+
+        Set-Acl -Path $homeShare -AclObject $acl
+
         Add-ADGroupMember -Identity $userGlobalGroup -Members $userFqdn
         echo "$userFqdn wird Mitglied der Gruppe $userGlobalGroup "
     }
