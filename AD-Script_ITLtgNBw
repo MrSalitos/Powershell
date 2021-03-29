@@ -3,25 +3,26 @@ $abteilungen = @("S1","S2","S3","S4","S6")
 $kdrPos = @("Kdr","stvKdr","VorZi")
 $abtPos = @("AbtLtr","AbtFw","GeZi")
 $ntfsRechte = @("VZ","AE","L")
-$sharePath = '\\DC-01\share'
+$sharePath = '\\bundeswehr.intern\AnwenderDaten\Arbeitsordner'
+$userPath = '\\bundeswehr.intern\user'
 $DC = "DC=BUNDESWEHR,DC=INTERN"
 $verband = "VersBtl131"
 $einheit = "Stab"
 $path = $DC
 New-ADOrganizationalUnit -Name $verband -Path $path -ProtectedFromAccidentalDeletion $false
-$verband = "OU=" + $verband + "," + $path
-New-ADOrganizationalUnit -Name $einheit -Path $verband -ProtectedFromAccidentalDeletion $false
-$einheit = "OU=" + $einheit + "," + $verband
-New-ADOrganizationalUnit -Name "G_Gruppen" -Path $verband -ProtectedFromAccidentalDeletion $false
-    $g_groupPath = "OU=G_Gruppen," + $verband
-New-ADOrganizationalUnit -Name "DL_Gruppen" -Path $verband -ProtectedFromAccidentalDeletion $false
-    $dl_groupPath = "OU=DL_Gruppen," + $verband
+$verbandOUName = "OU=" + $verband + "," + $path
+New-ADOrganizationalUnit -Name $einheit -Path $verbandOUName -ProtectedFromAccidentalDeletion $false
+$einheit = "OU=" + $einheit + "," + $verbandOUName
+New-ADOrganizationalUnit -Name "G_Gruppen" -Path $verbandOUName -ProtectedFromAccidentalDeletion $false
+    $g_groupPath = "OU=G_Gruppen," + $verbandOUName
+New-ADOrganizationalUnit -Name "DL_Gruppen" -Path $verbandOUName -ProtectedFromAccidentalDeletion $false
+    $dl_groupPath = "OU=DL_Gruppen," + $verbandOUName
 
 foreach($abt IN $abteilungen){
     New-ADOrganizationalUnit -Name $abt -Path $einheit -ProtectedFromAccidentalDeletion $false
 
     $userName = "dummyUser"
-    $userPath = "OU=" + $abt + "," + $einheit
+    $userADPath = "OU=" + $abt + "," + $einheit
     $userPassword = "P@ssw0rd01"
     
     # Domänenlokale Gruppen anlegen
@@ -60,19 +61,19 @@ foreach($abt IN $abteilungen){
     foreach($pos IN $abtPos){
         $userName = $abt + "_" + $pos
         $userGlobalGroup = "G_" + $abt + "_" + $pos
-        $userFqdn = "CN=" + $userName + "," + $userPath
-        $userProfilePath = "$sharePath\profile\$abt\$userName"
+        $userFqdn = "CN=" + $userName + "," + $userADPath
+        $userProfilePath = $userPath + '\userProfile\%USERNAME%'
         echo $userProfilePath
-        $userHomePath = "$sharePath\home\$abt\{0}" -f $userName
+        $userHomePath = $userPath + '\userHome\%USERNAME%'
         echo $userHomePath
         $userHomeDrive = "H:"
-        New-ADUser -SamAccountName $userName -Name $userName -UserPrincipalName $userName -HomeDrive $userHomeDrive -HomeDirectory $userHomePath -Enabled $true -AccountPassword (ConvertTo-SecureString -AsPlainText $userPassword -Force) -PasswordNeverExpires $true -Path $userPath
+        New-ADUser -SamAccountName $userName -Name $userName -UserPrincipalName $userName -ProfilePath $userProfilePath -HomeDrive $userHomeDrive -HomeDirectory $userHomePath -Enabled $true -AccountPassword (ConvertTo-SecureString -AsPlainText $userPassword -Force) -PasswordNeverExpires $true -Path $userADPath
         Add-ADGroupMember -Identity $userGlobalGroup -Members $userFqdn
         echo "$userFqdn wird Mitglied der Gruppe $userGlobalGroup "
     }
 
     foreach($share IN $abt){
-        $shareName = $sharePath + '\' + $abt
+        $shareName = $sharePath + '\' + $verband + '\' + $abt
         $testPath = Test-Path -Path $shareName
         if($testPath -eq $false){
             New-Item -Path $shareName -ItemType directory
